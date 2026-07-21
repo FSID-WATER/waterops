@@ -1,0 +1,269 @@
+<!DOCTYPE html><script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "FSID Water Operations",
+  "schemaVersion": 1,
+  "description": "FSID Water Operations dashboard — LIVE. Two stacked trend charts (Local River Reach with 2-week entitlement line; Returns & Drains) + a sparkline for every gauge. Data pulled from USGS Water Services + OSE meas.ose by water_ops_refresh.py, refreshed 4 AM daily and on the manual button. Charts are self-contained inline SVG (no CDN libraries)."
+}
+</script>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FSID Water Operations</title>
+<style>
+:root{color-scheme:light;
+ --bg:#eef3f7; --card:#ffffff; --ink:#0f2238; --mut:#5c7184; --line:#dde6ec;
+ --blue:#1763a6; --sky:#2b8ccc; --teal:#0f8a7e; --amber:#c77b06; --red:#c0392b; --green:#1f8a4c;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45}
+.wrap{max-width:1080px;margin:0 auto;padding:16px 16px 48px}
+header.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+h1{margin:0;font-size:22px;letter-spacing:-.3px}
+h1 .sub{display:block;font-size:12px;font-weight:500;color:var(--mut);letter-spacing:0;margin-top:2px}
+.rt{text-align:right;font-size:12px;color:var(--mut)}
+.rt b{display:block;color:var(--ink);font-size:14px}
+.rbtn{margin-top:6px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--line);
+ background:var(--card);border-radius:8px;cursor:pointer;font-weight:600;font-size:12.5px;color:var(--blue)}
+.rbtn:hover{background:#f2f8fc}
+.banner{display:flex;align-items:center;gap:8px;background:#eaf5ee;border:1px solid #c4e2ce;color:#1f6b3d;
+ border-radius:8px;padding:7px 11px;font-size:12px;margin:10px 0 14px}
+.banner b{color:#155e30}
+.banner.warn{background:#fff7e6;border-color:#f0dcae;color:#8a6414}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 15px;margin-bottom:12px}
+.card h3{margin:0 0 2px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+.card .h3sub{font-size:11.5px;color:var(--mut);margin-bottom:8px}
+.callout{display:inline-flex;align-items:center;gap:7px;background:#fdf1e6;border:1px solid #f2d3ad;color:#9a5a06;
+ border-radius:7px;padding:5px 10px;font-size:12.5px;font-weight:600;margin-bottom:8px}
+.callout.ok{background:#eaf7ef;border-color:#bfe3cb;color:#1f7a44}
+.chartbox{position:relative;height:230px}
+.chartbox.sm{height:170px}
+.chartbox svg{display:block}
+.ttip{position:absolute;pointer-events:none;background:#0f2238;color:#fff;border-radius:7px;padding:6px 9px;
+ font-size:11.5px;line-height:1.5;box-shadow:0 3px 10px rgba(15,34,56,.25);display:none;z-index:5;white-space:nowrap}
+.ttip .tr{display:flex;align-items:center;gap:6px}
+.ttip .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--mut);margin:2px 0 6px}
+.lg{display:flex;align-items:center;gap:5px}
+.sw{width:14px;height:3px;border-radius:2px;display:inline-block}
+.sw.dash{background:none;border-top:2px dashed var(--red);height:0}
+.spark{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px}
+.scard{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--card)}
+.scard .nm{font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.scard svg{display:block;width:100%;height:34px;margin:3px 0 1px}
+.scard .val{font-size:19px;font-weight:700;line-height:1.15}
+.scard .val small{font-size:11px;color:var(--mut);font-weight:600}
+.scard .tag{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:999px;margin-left:4px}
+.tag.over{background:#fdecec;color:#c0392b}.tag.under{background:#eaf7ef;color:#1f8a4c}
+.up{color:#1f8a4c}.dn{color:#c0392b}.flat{color:#8aa0b0}
+.foot{font-size:11.5px;color:var(--mut);margin-top:6px;line-height:1.5}
+.na{opacity:.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <header class="top">
+   <h1>🌊 FSID Water Operations<span class="sub">Fort Sumner Irrigation District · live gauge status &amp; trends</span></h1>
+   <div class="rt"><b id="clock">—</b><span id="asof">—</span>
+     <div><button class="rbtn" id="refresh">⟳ Refresh</button></div>
+   </div>
+ </header>
+
+ <div class="banner" id="statusBanner">🟢 <b>Live.</b>&nbsp;<span id="bannerText">Gauges via USGS Water Services + OSE. Auto-refresh 4 AM daily; press Refresh anytime.</span></div>
+
+ <!-- REACH CHART -->
+ <div class="card">
+   <h3>Local River Reach · CFS</h3>
+   <div class="h3sub">What comes down (Below Sumner) → what you divert (Main Canal) → what’s left below you (Taiban), against your 2-week entitlement.</div>
+   <div class="callout" id="entCallout" style="display:none">—</div>
+   <div class="legend">
+     <span class="lg"><span class="sw" style="background:#1763a6"></span>Below Sumner</span>
+     <span class="lg"><span class="sw" style="background:#0f8a7e"></span>Main Canal (12-hr avg)</span>
+     <span class="lg"><span class="sw" style="background:#c77b06"></span>Taiban</span>
+     <span class="lg"><span class="sw dash"></span><span id="entLegend">2-wk entitlement</span></span>
+   </div>
+   <div class="chartbox" id="reach"></div>
+ </div>
+
+ <!-- RETURNS CHART -->
+ <div class="card">
+   <h3>Returns &amp; Drains · CFS</h3>
+   <div class="h3sub">Same window, own scale so the small flows are legible.</div>
+   <div class="legend">
+     <span class="lg"><span class="sw" style="background:#7a4fb5"></span>Sand Gate Return</span>
+     <span class="lg"><span class="sw" style="background:#b5654d"></span>FSID Main Drain</span>
+     <span class="lg"><span class="sw" style="background:#c0397b"></span>FSID Lower Drain</span>
+   </div>
+   <div class="chartbox sm" id="returns"></div>
+ </div>
+
+ <!-- SPARKLINES -->
+ <div class="card">
+   <h3>All gauges · 24-hour trend</h3>
+   <div class="h3sub">Every gauge at its own scale — including the 2-week determination gauges (Above Santa Rosa, Puerto de Luna) that spike on rain events.</div>
+   <div class="spark" id="sparks"></div>
+ </div>
+
+ <p class="foot">
+   <b>Sources:</b> USGS Water Services (river gauges + Main Canal 12-hr mean) · OSE meas.ose.state.nm.us (FSID Main &amp; Lower Drain) · OSE 2-week determination (entitlement).
+   Rainfall entered manually. Reservoir storage omitted (FSID has no storage right).
+   Entitlement line updates every 2 weeks with the new allotment. Refresh: 4 AM daily auto + manual button.
+ </p>
+</div>
+
+<script>
+const N=49;
+const LIVE=true;
+const DATA_END=1784588702007;
+const ENTITLEMENT=66.9;
+const ASOF="Mon Jul 20, 5:05 PM";
+const GAUGES={"sumner": {"name": "Below Sumner", "color": "#1763a6", "unit": "cfs", "group": "reach", "data": [108.0, 108.96, 109.0, 110.62, 108.83, 108.79, 109.0, 108.0, 109.0, 109.0, 108.58, 108.54, 110.0, 108.0, 108.0, 108.62, 108.67, 109.0, 108.0, 108.0, 108.0, 108.0, 108.92, 108.04, 108.0, 108.0, 108.0, 108.88, 108.83, 108.21, 108.0, 95.45, 92.3, 93.9, 94.37, 95.13, 96.3, 96.79, 97.2, 97.2, 97.2, 97.2, 97.2, 97.2, 96.45, 97.2, 97.2, 97.2, 96.3], "current": 96.3}, "canal": {"name": "Main Canal", "color": "#0f8a7e", "unit": "cfs", "group": "reach", "data": [76.0, 76.79, 76.45, 74.84, 76.5, 77.86, 76.53, 75.43, 79.27, 77.76, 78.88, 76.71, 77.85, 78.59, 77.45, 76.11, 76.9, 76.42, 77.3, 75.06, 77.5, 78.15, 76.68, 76.5, 77.8, 76.5, 77.8, 77.14, 73.97, 76.12, 76.85, 75.84, 75.53, 75.58, 76.23, 75.95, 77.4, 76.95, 76.66, 75.5, 75.23, 76.02, 74.38, 71.38, 69.02, 71.24, 72.38, 70.99, 69.3], "current": 74.9, "ent": true}, "taiban": {"name": "Taiban", "color": "#c77b06", "unit": "cfs", "group": "reach", "data": [47.4, 46.44, 47.4, 47.27, 46.57, 46.4, 46.15, 45.69, 45.4, 46.4, 46.98, 48.0, 48.5, 49.0, 49.6, 49.6, 49.6, 49.6, 49.6, 49.6, 49.6, 49.6, 49.6, 49.6, 49.6, 49.6, 49.6, 48.64, 48.68, 48.5, 48.5, 47.4, 47.4, 47.4, 46.4, 46.4, 46.4, 46.4, 46.4, 45.77, 46.07, 46.4, 46.15, 46.19, 45.4, 45.4, 44.48, 44.44, 44.4], "current": 44.4}, "abvSR": {"name": "Above Santa Rosa", "color": "#2b8ccc", "unit": "cfs", "group": "det", "data": [5.12, 5.51, 5.51, 5.22, 5.51, 5.51, 5.51, 5.68, 5.92, 5.92, 5.92, 5.92, 5.92, 5.92, 5.92, 5.92, 5.92, 5.92, 5.92, 6.17, 6.35, 6.35, 6.35, 5.96, 6.35, 6.35, 6.28, 6.35, 6.06, 6.35, 6.35, 6.35, 6.35, 6.24, 6.28, 5.96, 5.92, 6.35, 5.92, 6.24, 5.92, 5.92, 5.92, 5.51, 5.65, 5.51, 5.51, 5.51, 5.51], "current": 5.51}, "pdl": {"name": "Puerto de Luna", "color": "#1f8a4c", "unit": "cfs", "group": "det", "data": [61.5, 61.44, 61.5, 61.69, 61.5, 62.69, 63.0, 63.0, 63.0, 62.06, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 63.0, 61.88, 61.94, 63.0, 63.0, 63.0, 62.19, 62.25, 62.19, 63.0, 63.0, 62.0, 63.0, 61.5, 61.81, 61.5, 62.81, 62.88, 61.56, 61.5], "current": 61.5}, "sand": {"name": "Sand Gate", "color": "#7a4fb5", "unit": "cfs", "group": "ret", "data": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "current": 0.0}, "mdrain": {"name": "Main Drain", "color": "#b5654d", "unit": "cfs", "group": "ret", "data": [0.89, 0.88, 0.87, 0.88, 0.89, 0.88, 0.88, 0.87, 0.87, 0.87, 0.88, 0.92, 1.22, 1.51, 1.77, 2.03, 2.19, 2.31, 2.4, 2.46, 2.44, 2.3, 2.16, 2.02, 1.88, 1.93, 1.97, 1.95, 1.91, 1.84, 1.74, 1.59, 1.37, 1.2, 1.16, 1.11, 1.04, 0.96, 0.92, 0.88, 0.87, 0.87, 0.87, 0.87, 0.87, 0.87, 0.87, 0.87, 0.87], "current": 0.87}, "ldrain": {"name": "Lower Drain", "color": "#c0397b", "unit": "cfs", "group": "ret", "data": [1.89, 1.89, 1.89, 1.91, 1.93, 1.94, 1.94, 1.94, 1.94, 1.94, 2.75, 3.69, 4.39, 4.9, 5.38, 5.79, 6.19, 6.14, 6.09, 5.91, 5.68, 5.43, 5.18, 4.92, 4.67, 4.42, 4.23, 4.05, 3.9, 3.78, 3.68, 3.61, 3.54, 3.45, 3.36, 3.22, 3.07, 2.94, 2.84, 2.74, 2.61, 2.48, 2.4, 2.32, 2.27, 2.23, 2.2, 2.18, 2.17], "current": 2.17}};
+
+// ---- time labels: last 24h ending at the DATA PULL time (not page-load time) ----
+const now=(typeof DATA_END==='number')?new Date(DATA_END):new Date();
+const labels=[]; for(let i=0;i<N;i++){const d=new Date(now.getTime()-(N-1-i)*(1440/N)*60000);
+  labels.push(d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0'));}
+
+// ---- self-contained SVG line charts (no external libraries) ----
+function niceStep(x){if(!(x>0))return 1;const p=Math.pow(10,Math.floor(Math.log(x)/Math.LN10));
+  const n=x/p;return (n<=1?1:n<=2?2:n<=5?5:10)*p;}
+function fmtV(v,dec){return v==null?'—':v.toFixed(dec);}
+
+function svgChart(elId,keys,opts){
+  const el=document.getElementById(elId); if(!el) return;
+  const dec=opts.dec||1;
+  const series=keys.map(k=>GAUGES[k]).filter(Boolean);
+  const ttip=document.createElement('div');ttip.className='ttip';el.appendChild(ttip);
+
+  function draw(){
+    const Wp=el.clientWidth||640, Hp=el.clientHeight||200;
+    const padL=46,padR=12,padT=10,padB=24,pw=Wp-padL-padR,ph=Hp-padT-padB;
+    let vmax=0;
+    series.forEach(g=>(g.data||[]).forEach(v=>{if(v!=null&&v>vmax)vmax=v;}));
+    if(opts.ent&&typeof ENTITLEMENT==='number'&&ENTITLEMENT>vmax)vmax=ENTITLEMENT;
+    if(opts.minMax&&vmax<opts.minMax)vmax=opts.minMax;
+    const step=niceStep((vmax*1.12)/4);
+    vmax=Math.max(step,Math.ceil((vmax*1.12)/step)*step);
+    const X=i=>padL+i/(N-1)*pw, Y=v=>padT+ph-(v/vmax)*ph;
+    let s='';
+    // y grid + labels
+    for(let t=0;t<=vmax+1e-9;t+=step){const y=Y(t);
+      s+='<line x1="'+padL+'" y1="'+y+'" x2="'+(Wp-padR)+'" y2="'+y+'" stroke="#eef3f7" stroke-width="1"/>';
+      s+='<text x="'+(padL-7)+'" y="'+(y+3.5)+'" text-anchor="end" font-size="10" fill="#8aa0b0">'+(step<1?t.toFixed(1):Math.round(t))+'</text>';}
+    // x labels
+    for(let i=0;i<N;i+=8){s+='<text x="'+X(i)+'" y="'+(Hp-7)+'" text-anchor="middle" font-size="10" fill="#8aa0b0">'+labels[i]+'</text>';}
+    // axis-title
+    s+='<text x="12" y="'+(padT+ph/2)+'" text-anchor="middle" font-size="10" fill="#8aa0b0" transform="rotate(-90 12 '+(padT+ph/2)+')">CFS</text>';
+    // series: area + line (skip nulls, span gaps)
+    series.forEach(g=>{
+      const pts=[];(g.data||[]).forEach((v,i)=>{if(v!=null)pts.push([X(i),Y(v)]);});
+      if(!pts.length)return;
+      let line='';pts.forEach((p,j)=>{line+=(j?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)+' ';});
+      const base=Y(0);
+      const area=line+'L'+pts[pts.length-1][0].toFixed(1)+' '+base+' L'+pts[0][0].toFixed(1)+' '+base+' Z';
+      s+='<path d="'+area+'" fill="'+g.color+'22" stroke="none"/>';
+      s+='<path d="'+line+'" fill="none" stroke="'+g.color+'" stroke-width="2" stroke-linejoin="round"/>';});
+    // entitlement dashed line
+    if(opts.ent&&typeof ENTITLEMENT==='number'){const y=Y(ENTITLEMENT);
+      s+='<line x1="'+padL+'" y1="'+y+'" x2="'+(Wp-padR)+'" y2="'+y+'" stroke="#c0392b" stroke-width="2" stroke-dasharray="6 4"/>';}
+    // crosshair (hidden until hover)
+    s+='<line id="'+elId+'_ch" x1="0" y1="'+padT+'" x2="0" y2="'+(padT+ph)+'" stroke="#8aa0b0" stroke-width="1" stroke-dasharray="3 3" style="display:none"/>';
+    const svg='<svg width="'+Wp+'" height="'+Hp+'" viewBox="0 0 '+Wp+' '+Hp+'">'+s+'</svg>';
+    el.insertAdjacentHTML('afterbegin','');// noop keeps parser happy
+    // replace svg only (keep tooltip div)
+    const old=el.querySelector('svg');if(old)old.remove();
+    ttip.insertAdjacentHTML('beforebegin',svg);
+    // hover
+    const sv=el.querySelector('svg'),ch=document.getElementById(elId+'_ch');
+    sv.onmousemove=function(e){
+      const r=sv.getBoundingClientRect(),mx=e.clientX-r.left;
+      let idx=Math.round((mx-padL)/pw*(N-1));idx=Math.max(0,Math.min(N-1,idx));
+      ch.setAttribute('x1',X(idx));ch.setAttribute('x2',X(idx));ch.style.display='';
+      let h='<b>'+labels[idx]+'</b>';
+      series.forEach(g=>{h+='<div class="tr"><span class="dot" style="background:'+g.color+'"></span>'+g.name+': '+fmtV((g.data||[])[idx],dec)+'</div>';});
+      if(opts.ent&&typeof ENTITLEMENT==='number')h+='<div class="tr"><span class="dot" style="background:#c0392b"></span>Entitlement: '+ENTITLEMENT.toFixed(2)+'</div>';
+      ttip.innerHTML=h;ttip.style.display='block';
+      const tw=ttip.offsetWidth,px=X(idx)+12+tw>Wp?X(idx)-tw-12:X(idx)+12;
+      ttip.style.left=px+'px';ttip.style.top=Math.max(4,e.clientY-r.top-14)+'px';};
+    sv.onmouseleave=function(){ttip.style.display='none';ch.style.display='none';};
+  }
+  draw();
+  let rt;window.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(draw,150);});
+}
+
+try{svgChart('reach',['sumner','canal','taiban'],{ent:true,dec:1,minMax:100});}catch(e){console.error('reach chart',e);}
+try{svgChart('returns',['sand','mdrain','ldrain'],{dec:2,minMax:5});}catch(e){console.error('returns chart',e);}
+
+// ---- SPARKLINES (all gauges present) ----
+try{
+const sp=document.getElementById('sparks');
+Object.keys(GAUGES).forEach(k=>{
+  const g=GAUGES[k],d=(g.data||[]).filter(v=>v!=null);
+  const nm='<div class="nm" style="color:'+g.color+'">'+g.name+'</div>';
+  if(!d.length){sp.insertAdjacentHTML('beforeend','<div class="scard na">'+nm+'<div class="val">—</div></div>');return;}
+  const last=(g.current!=null?g.current:d[d.length-1]),first=d[0];
+  const dmin=Math.min(...d),dmax=Math.max(...d),rng2=(dmax-dmin)||1;
+  const W=150,H=34;let path='';
+  for(let i=0;i<d.length;i++){const x=(d.length===1?W:(i/(d.length-1))*W);const y=H-2-((d[i]-dmin)/rng2)*(H-4);path+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)+' ';}
+  const lx=W, ly=H-2-((last-dmin)/rng2)*(H-4);
+  const dir=last>first+rng2*0.05?'up':(last<first-rng2*0.05?'dn':'flat');
+  const arrow=dir==='up'?'▲':(dir==='dn'?'▼':'—');
+  let tag='';
+  if(g.ent&&typeof ENTITLEMENT==='number'){const dv=last-ENTITLEMENT;tag=' <span class="tag '+(dv>0?'over':'under')+'">'+(dv>0?'+':'')+dv.toFixed(1)+' vs ent</span>';}
+  const dec=last<10?2:0;
+  sp.insertAdjacentHTML('beforeend',
+   '<div class="scard">'+nm+
+   '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none"><path d="'+path+'" fill="none" stroke="'+g.color+'" stroke-width="1.8"/>'+
+   '<circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="2.4" fill="'+g.color+'"/></svg>'+
+   '<div class="val">'+last.toFixed(dec)+' <small>'+(g.unit||'cfs')+'</small> <span class="'+dir+'">'+arrow+'</span>'+tag+'</div></div>');
+});
+}catch(e){console.error('sparklines',e);}
+
+// ---- entitlement callout + legend ----
+try{
+(function(){const el=document.getElementById('entCallout');
+  if(typeof ENTITLEMENT!=='number'||!GAUGES.canal){return;}
+  document.getElementById('entLegend').textContent='2-wk entitlement '+ENTITLEMENT.toFixed(2);
+  const cd=(GAUGES.canal.data||[]).filter(v=>v!=null);
+  const c=(GAUGES.canal.current!=null?GAUGES.canal.current:cd[cd.length-1]);
+  if(c==null){return;}
+  el.style.display='';
+  const dv=c-ENTITLEMENT;
+  if(dv>2){el.className='callout';el.textContent='Main Canal '+c.toFixed(1)+' vs entitlement '+ENTITLEMENT.toFixed(2)+' → +'+dv.toFixed(1)+' CFS over — adjust down';}
+  else if(dv<-2){el.className='callout';el.textContent='Main Canal '+c.toFixed(1)+' vs entitlement '+ENTITLEMENT.toFixed(2)+' → '+dv.toFixed(1)+' CFS under — room to divert';}
+  else{el.className='callout ok';el.textContent='Main Canal '+c.toFixed(1)+' ≈ entitlement '+ENTITLEMENT.toFixed(2)+' — on target';}})();
+}catch(e){console.error('callout',e);}
+
+// ---- clock + as-of ----
+try{
+function tick(){const d=new Date();
+  document.getElementById('clock').textContent=d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+' '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});}
+tick();setInterval(tick,30000);
+document.getElementById('asof').textContent='Data as of '+(typeof ASOF==='string'?ASOF:'—');
+}catch(e){console.error('clock',e);}
+
+// ---- banner: live vs awaiting-first-pull ----
+try{
+(function(){const b=document.getElementById('statusBanner');
+  if(typeof LIVE!=='undefined' && !LIVE){b.className='banner warn';
+    b.innerHTML='🟡 <b>Sample data.</b>&nbsp;Press <b>Refresh</b> (or wait for the 4 AM pull) to load live gauges.';}})();
+}catch(e){console.error('banner',e);}
+
+// ---- refresh button → trigger the scheduled pull ----
+try{
+document.getElementById('refresh').addEventListener('click',function(){
+  const btn=this;
+  if(window.cowork&&typeof window.cowork.runScheduledTask==='function'){
+    btn.textContent='⟳ Refreshing…';btn.disabled=true;
+    Promise.resolve(window.cowork.runScheduledTask('fsid-water-ops-refresh'))
+      .then(()=>{btn.textContent='⟳ Pull started — reload in ~1 min';})
+      .catch(()=>{btn.textContent='⟳ Refresh (couldn’t start)';})
+      .finally(()=>{setTimeout(()=>{btn.textContent='⟳ Refresh';btn.disabled=false;},60000);});
+  } else {
+    btn.textContent='⟳ Reopen to refresh';setTimeout(()=>{btn.textContent='⟳ Refresh';},2500);
+  }
+});
+}catch(e){console.error('refresh',e);}
+</script>
+</body>
+</html>
